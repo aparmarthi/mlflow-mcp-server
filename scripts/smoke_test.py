@@ -4,11 +4,17 @@ Run from repo root: python scripts/smoke_test.py
 """
 import json
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 FIXTURE_URI = "/tmp/mlflow_smoke_fixture"
+
+# Clean up any leftover fixture from a previous run so create_experiment
+# doesn't collide with an already-existing "smoke_new_exp".
+if os.path.exists(FIXTURE_URI):
+    shutil.rmtree(FIXTURE_URI)
 
 # Seed fixture with one experiment and two runs
 import mlflow
