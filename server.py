@@ -33,7 +33,7 @@ def list_experiments(tracking_uri: str | None = None) -> list[dict[str, Any]]:
             for e in exps
         ]
     except Exception as exc:
-        return [{"error": str(exc), "tracking_uri": tracking_uri or os.getenv("MLFLOW_TRACKING_URI", "./mlruns")}]
+        return [{"error": str(exc)}]
 
 
 @mcp.tool()
@@ -57,7 +57,11 @@ def get_run(run_id: str, tracking_uri: str | None = None) -> dict[str, Any]:
         return {"error": str(exc), "run_id": run_id}
 
 
-if __name__ == "__main__":
+def main() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8080"))
     mcp.run(transport="sse", host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()
