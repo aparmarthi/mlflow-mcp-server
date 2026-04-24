@@ -109,6 +109,79 @@ def search_runs(
         return [{"error": str(exc)}]
 
 
+@mcp.tool()
+def create_experiment(
+    name: str,
+    artifact_location: str | None = None,
+    tracking_uri: str | None = None,
+) -> dict[str, Any]:
+    """Create a new MLflow experiment. Returns the new experiment_id."""
+    try:
+        client = _client(tracking_uri)
+        experiment_id = client.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+        )
+        return {"experiment_id": experiment_id, "name": name}
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def log_run(
+    experiment_name: str,
+    run_name: str,
+    params: dict[str, Any] | None = None,
+    metrics: dict[str, float] | None = None,
+    tags: dict[str, str] | None = None,
+    tracking_uri: str | None = None,
+) -> dict[str, Any]:
+    """
+    Create a completed MLflow run and log params, metrics, and tags in one call.
+
+    Useful for logging results from a training script after the fact,
+    or letting Claude record an experimental result.
+    """
+    try:
+        uri = tracking_uri or os.getenv("MLFLOW_TRACKING_URI", "./mlruns")
+        mlflow.set_tracking_uri(uri)
+        mlflow.set_experiment(experiment_name)
+
+        with mlflow.start_run(run_name=run_name) as run:
+            if params:
+                mlflow.log_params({k: str(v) for k, v in params.items()})
+            if metrics:
+                numeric = {k: float(v) for k, v in metrics.items() if v is not None}
+                if numeric:
+                    mlflow.log_metrics(numeric)
+            if tags:
+                mlflow.set_tags(tags)
+
+            return {
+                "run_id": run.info.run_id,
+                "experiment_name": experiment_name,
+                "run_name": run_name,
+            }
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def set_run_tag(
+    run_id: str,
+    key: str,
+    value: str,
+    tracking_uri: str | None = None,
+) -> dict[str, Any]:
+    """Set a tag on an existing run. Useful for marking champion, deprecated, etc."""
+    try:
+        client = _client(tracking_uri)
+        client.set_tag(run_id, key, value)
+        return {"run_id": run_id, "key": key, "value": value}
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
 def main() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8080"))
