@@ -57,6 +57,58 @@ def get_run(run_id: str, tracking_uri: str | None = None) -> dict[str, Any]:
         return {"error": str(exc), "run_id": run_id}
 
 
+@mcp.tool()
+def search_runs(
+    experiment_names: list[str],
+    filter_string: str = "",
+    order_by: list[str] | None = None,
+    max_results: int = 20,
+    tracking_uri: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Search runs across experiments.
+
+    filter_string examples:
+      "metrics.roc_auc > 0.95"
+      "params.model_type = 'lgbm' and metrics.pr_auc > 0.90"
+      "tags.stage = 'champion'"
+
+    order_by examples:
+      ["metrics.roc_auc DESC"]
+      ["start_time DESC"]
+    """
+    try:
+        client = _client(tracking_uri)
+        exp_ids = []
+        for name in experiment_names:
+            exp = client.get_experiment_by_name(name)
+            if exp:
+                exp_ids.append(exp.experiment_id)
+        if not exp_ids:
+            return [{"error": f"No experiments found for names: {experiment_names}"}]
+
+        runs = client.search_runs(
+            experiment_ids=exp_ids,
+            filter_string=filter_string,
+            order_by=order_by or ["start_time DESC"],
+            max_results=max_results,
+        )
+        return [
+            {
+                "run_id": r.info.run_id,
+                "run_name": r.info.run_name,
+                "status": r.info.status,
+                "start_time": r.info.start_time,
+                "params": dict(r.data.params),
+                "metrics": dict(r.data.metrics),
+                "tags": dict(r.data.tags),
+            }
+            for r in runs
+        ]
+    except Exception as exc:
+        return [{"error": str(exc)}]
+
+
 def main() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8080"))
